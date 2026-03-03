@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mark Attendance — AttendanceCV | Live Scan</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* Success overlay */
+        .success-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(10, 10, 15, 0.92);
+            backdrop-filter: blur(20px);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 1.5rem;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .success-overlay.show {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .success-checkmark {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: #34d399;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 60px rgba(52, 211, 153, 0.4), 0 0 120px rgba(52, 211, 153, 0.15);
+            animation: scaleIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes scaleIn {
+            0% {
+                transform: scale(0);
+                opacity: 0;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .success-checkmark svg {
+            animation: drawCheck 0.4s ease 0.3s both;
+        }
+
+        @keyframes drawCheck {
+            0% {
+                stroke-dashoffset: 30;
+                opacity: 0;
+            }
+
+            100% {
+                stroke-dashoffset: 0;
+                opacity: 1;
+            }
+        }
+
+        .success-name {
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #34d399;
+            animation: slideUp 0.5s ease 0.2s both;
+        }
+
+        .success-subtitle {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            animation: slideUp 0.5s ease 0.35s both;
+        }
+
+        .success-redirect {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 1rem;
+            animation: slideUp 0.5s ease 0.5s both;
+        }
+
+        .success-redirect .countdown {
+            color: var(--accent-light);
+            font-weight: 700;
+        }
+
+        @keyframes slideUp {
+            0% {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+
+            100% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .scanning-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            border-radius: var(--radius-md);
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--accent-light);
+            margin-bottom: 1rem;
+        }
+
+        .scanning-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent);
+            border-radius: 50%;
+            animation: pulse 1.2s ease-in-out infinite;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Success Overlay -->
+    <div class="success-overlay" id="successOverlay">
+        <div class="success-checkmark">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"
+                stroke-linecap="round" stroke-linejoin="round" style="stroke-dasharray: 30;">
+                <polyline points="20 6 9 17 4 12" />
+            </svg>
+        </div>
+        <div class="success-name" id="recognizedName"></div>
+        <div class="success-subtitle">Attendance Marked Successfully ✓</div>
+        <div class="success-redirect">Redirecting to dashboard in <span class="countdown" id="countdown">3</span>s...
+        </div>
+    </div>
+
+    <nav class="navbar">
+        <div class="navbar-inner">
+            <a href="/" class="navbar-brand">
+                <div class="brand-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                    </svg>
+                </div>
+                AttendanceCV
+            </a>
+            <ul class="navbar-links">
+                <li><a href="/"><span class="nav-icon">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="3" width="7" height="7" />
+                                <rect x="14" y="3" width="7" height="7" />
+                                <rect x="3" y="14" width="7" height="7" />
+                                <rect x="14" y="14" width="7" height="7" />
+                            </svg>
+                        </span> Dashboard</a></li>
+                <li><a href="/register"><span class="nav-icon">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                                <circle cx="8.5" cy="7" r="4" />
+                                <line x1="20" y1="8" x2="20" y2="14" />
+                                <line x1="23" y1="11" x2="17" y2="11" />
+                            </svg>
+                        </span> Register</a></li>
+                <li><a href="/mark" class="active"><span class="nav-icon">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path
+                                    d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                                <circle cx="12" cy="13" r="4" />
+                            </svg>
+                        </span> Mark</a></li>
+                <li><a href="/records"><span class="nav-icon">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                <polyline points="14 2 14 8 20 8" />
+                                <line x1="16" y1="13" x2="8" y2="13" />
+                                <line x1="16" y1="17" x2="8" y2="17" />
+                            </svg>
+                        </span> Records</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="page-header">
+            <h1>Mark Attendance</h1>
+            <p>Stand in front of the camera — recognized faces are logged automatically</p>
+        </div>
+
+        <div class="scanning-status" id="scanningStatus">
+            <div class="scanning-dot"></div>
+            Looking for faces…
+        </div>
+
+        <div class="card">
+            <div class="card-body" style="padding: 1.5rem;">
+                <div class="video-container" id="videoContainer">
+                    <img src="{{ url_for('video_feed') }}" alt="Live Camera Feed" id="videoFeed">
+                    <div class="video-overlay">
+                        <div class="live-dot"></div>
+                        LIVE
+                    </div>
+                </div>
+
+                <div class="video-actions">
+                    <a href="/stop_feed" class="btn btn-danger">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <rect x="6" y="6" width="12" height="12" rx="1" />
+                        </svg>
+                        Stop Scanning
+                    </a>
+                    <a href="/" class="btn btn-outline">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <rect x="3" y="3" width="7" height="7" />
+                            <rect x="14" y="3" width="7" height="7" />
+                            <rect x="3" y="14" width="7" height="7" />
+                            <rect x="14" y="14" width="7" height="7" />
+                        </svg>
+                        Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let pollingInterval = null;
+        let redirecting = false;
+
+        function checkRecognized() {
+            if (redirecting) return;
+
+            fetch('/check_recognized')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.recognized && data.recognized.length > 0 && !redirecting) {
+                        redirecting = true;
+                        clearInterval(pollingInterval);
+
+                        const names = data.recognized.join(', ');
+                        showSuccess(names);
+                    }
+                })
+                .catch(() => { });
+        }
+
+        function showSuccess(names) {
+            const overlay = document.getElementById('successOverlay');
+            const nameEl = document.getElementById('recognizedName');
+            const statusEl = document.getElementById('scanningStatus');
+
+            nameEl.textContent = names + ' is Present!';
+            overlay.classList.add('show');
+            statusEl.style.display = 'none';
+
+            // Countdown and redirect
+            let seconds = 3;
+            const countdownEl = document.getElementById('countdown');
+
+            const timer = setInterval(() => {
+                seconds--;
+                countdownEl.textContent = seconds;
+                if (seconds <= 0) {
+                    clearInterval(timer);
+                    // Stop camera feed first
+                    fetch('/stop_feed').finally(() => {
+                        window.location.href = '/';
+                    });
+                }
+            }, 1000);
+        }
+
+        // Start polling every 1 second
+        pollingInterval = setInterval(checkRecognized, 1000);
+    </script>
+</body>
+
+</html>
